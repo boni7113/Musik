@@ -65,9 +65,9 @@ class Userbot(Client):
         if config.STRING1:
             await self.one.start()
             try:
-                await self.one.join_chat("Alexa_Help")
-                await self.one.join_chat("TheTeamAlexa")
-                await self.one.join_chat("Alexa_BotUpdates")
+                await self.one.join_chat("jsisjsjskw")
+                await self.one.join_chat("")
+                await self.one.join_chat("")
             except Exception:
                 pass
             assistants.append(1)
