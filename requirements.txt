@@ -13,7 +13,7 @@ ntgcalls==2.0.5
 pillow
 pykeyboard
 psutil
-py-tgcalls==2.2.0rc3
+py-tgcalls==2.2.5
 PyTgCrypto
 python-dotenv
 git+https://github.com/boni7113/pyrogram
