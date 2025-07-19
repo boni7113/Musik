@@ -2,7 +2,7 @@ import asyncio
 from pyrogram import Client
 
 async def generate_and_send_string_session(api_id, api_hash):
-    async with Client("string", api_id=api_id, api_hash=api_hash) as app:
+    async with Client("tele", api_id=api_id, api_hash=api_hash) as app:
         string_session = await app.export_session_string()
         print("\n==== PYROGRAM SESSION STRING ====\n")
         print(string_session)
