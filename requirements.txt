@@ -7,7 +7,7 @@ gunicorn
 hachoir
 lyricsgenius
 motor
-ntgcalls==2.0.5
+ntgcalls==2.0.6
 pillow
 pykeyboard
 psutil
