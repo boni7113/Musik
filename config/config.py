@@ -18,82 +18,112 @@ from pyrogram import filters
 
 load_dotenv()
 
-API_ID = int(getenv("API_ID", ""))
-API_HASH = getenv("API_HASH")
 
-BOT_TOKEN = getenv("BOT_TOKEN")
+def _env(name: str, default=None):
+    value = getenv(name, default)
+    if value is None or value == "":
+        return default
+    return value
 
-MONGO_DB_URI = getenv("MONGO_DB_URI", None)
 
-DURATION_LIMIT_MIN = int(getenv("DURATION_LIMIT", "900"))
+def _env_int(name: str, default=None, required: bool = False):
+    raw = getenv(name)
+    if raw is None or raw == "":
+        if required:
+            print(f"[ERROR] - {name} is missing. Please set it in your environment.")
+            sys.exit()
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        print(f"[ERROR] - {name} must be an integer.")
+        sys.exit()
 
-SONG_DOWNLOAD_DURATION = int(getenv("SONG_DOWNLOAD_DURATION_LIMIT", "180"))
+API_ID = _env_int("API_ID", required=True)
+API_HASH = _env("API_HASH")
 
-LOG_GROUP_ID = int(getenv("LOG_GROUP_ID", ""))
+BOT_TOKEN = _env("BOT_TOKEN")
 
-MUSIC_BOT_NAME = getenv("MUSIC_BOT_NAME")
+MONGO_DB_URI = _env("MONGO_DB_URI", None)
+SQLITE_DB_PATH = _env("SQLITE_DB_PATH", "data/alexa.sqlite3")
 
-OWNER_ID = int(getenv("OWNER_ID", None))
+DURATION_LIMIT_MIN = _env_int("DURATION_LIMIT", 900)
 
-HEROKU_API_KEY = getenv("HEROKU_API_KEY")
+SONG_DOWNLOAD_DURATION = _env_int("SONG_DOWNLOAD_DURATION_LIMIT", 180)
 
-BOT_ID = getenv("BOT_ID")
+LOG_GROUP_ID = _env_int("LOG_GROUP_ID", required=True)
 
-HEROKU_APP_NAME = getenv("HEROKU_APP_NAME")
+MUSIC_BOT_NAME = _env("MUSIC_BOT_NAME", "Hanzz")
 
-UPSTREAM_REPO = getenv("UPSTREAM_REPO", "https://github.com/boni7113/Musik")
+OWNER_ID = _env_int("OWNER_ID", required=True)
 
-UPSTREAM_BRANCH = getenv("UPSTREAM_BRANCH", "master")
+if not API_HASH:
+    print("[ERROR] - API_HASH is missing. Please set it in your environment.")
+    sys.exit()
 
-GIT_TOKEN = getenv("GIT_TOKEN", None)
+if not BOT_TOKEN:
+    print("[ERROR] - BOT_TOKEN is missing. Please set it in your environment.")
+    sys.exit()
 
-SUPPORT_CHANNEL = getenv("SUPPORT_CHANNEL", "")
+HEROKU_API_KEY = _env("HEROKU_API_KEY")
 
-SUPPORT_GROUP = getenv("SUPPORT_GROUP", "")
+BOT_ID = _env("BOT_ID")
 
-AUTO_LEAVING_ASSISTANT = getenv("AUTO_LEAVING_ASSISTANT", "False")
+HEROKU_APP_NAME = _env("HEROKU_APP_NAME")
 
-AUTO_LEAVE_ASSISTANT_TIME = int(getenv("ASSISTANT_LEAVE_TIME", "11500"))
+UPSTREAM_REPO = _env("UPSTREAM_REPO", "https://github.com/boni7113/Musik")
 
-AUTO_SUGGESTION_TIME = int(getenv("AUTO_SUGGESTION_TIME", "5400"))
+UPSTREAM_BRANCH = _env("UPSTREAM_BRANCH", "master")
 
-AUTO_DOWNLOADS_CLEAR = getenv("AUTO_DOWNLOADS_CLEAR", "True")
+GIT_TOKEN = _env("GIT_TOKEN", None)
 
-AUTO_SUGGESTION_MODE = getenv("AUTO_SUGGESTION_MODE", "False")
+SUPPORT_CHANNEL = _env("SUPPORT_CHANNEL", "")
 
-PRIVATE_BOT_MODE = getenv("PRIVATE_BOT_MODE", None)
+SUPPORT_GROUP = _env("SUPPORT_GROUP", "")
 
-YOUTUBE_DOWNLOAD_EDIT_SLEEP = int(getenv("YOUTUBE_EDIT_SLEEP", "3"))
+AUTO_LEAVING_ASSISTANT = _env("AUTO_LEAVING_ASSISTANT", "False")
 
-TELEGRAM_DOWNLOAD_EDIT_SLEEP = int(getenv("TELEGRAM_EDIT_SLEEP", "5"))
+AUTO_LEAVE_ASSISTANT_TIME = _env_int("ASSISTANT_LEAVE_TIME", 11500)
 
-GITHUB_REPO = getenv("GITHUB_REPO", "https://github.com/boni7113/Musik")
+AUTO_SUGGESTION_TIME = _env_int("AUTO_SUGGESTION_TIME", 5400)
 
-SPOTIFY_CLIENT_ID = getenv("SPOTIFY_CLIENT_ID", None)
+AUTO_DOWNLOADS_CLEAR = _env("AUTO_DOWNLOADS_CLEAR", "True")
 
-SPOTIFY_CLIENT_SECRET = getenv("SPOTIFY_CLIENT_SECRET", None)
+AUTO_SUGGESTION_MODE = _env("AUTO_SUGGESTION_MODE", "False")
 
-VIDEO_STREAM_LIMIT = int(getenv("VIDEO_STREAM_LIMIT", "2"))
+PRIVATE_BOT_MODE = _env("PRIVATE_BOT_MODE", None)
 
-SERVER_PLAYLIST_LIMIT = int(getenv("SERVER_PLAYLIST_LIMIT", "50"))
+YOUTUBE_DOWNLOAD_EDIT_SLEEP = _env_int("YOUTUBE_EDIT_SLEEP", 3)
 
-PLAYLIST_FETCH_LIMIT = int(getenv("PLAYLIST_FETCH_LIMIT", "50"))
+TELEGRAM_DOWNLOAD_EDIT_SLEEP = _env_int("TELEGRAM_EDIT_SLEEP", 5)
 
-CLEANMODE_DELETE_MINS = int(getenv("CLEANMODE_MINS", "7"))
+GITHUB_REPO = _env("GITHUB_REPO", "https://github.com/boni7113/Musik")
 
-TG_AUDIO_FILESIZE_LIMIT = int(getenv("TG_AUDIO_FILESIZE_LIMIT", "104857600"))
+SPOTIFY_CLIENT_ID = _env("SPOTIFY_CLIENT_ID", None)
 
-TG_VIDEO_FILESIZE_LIMIT = int(getenv("TG_VIDEO_FILESIZE_LIMIT", "1073741824"))
+SPOTIFY_CLIENT_SECRET = _env("SPOTIFY_CLIENT_SECRET", None)
+
+VIDEO_STREAM_LIMIT = _env_int("VIDEO_STREAM_LIMIT", 2)
+
+SERVER_PLAYLIST_LIMIT = _env_int("SERVER_PLAYLIST_LIMIT", 50)
+
+PLAYLIST_FETCH_LIMIT = _env_int("PLAYLIST_FETCH_LIMIT", 50)
+
+CLEANMODE_DELETE_MINS = _env_int("CLEANMODE_MINS", 7)
+
+TG_AUDIO_FILESIZE_LIMIT = _env_int("TG_AUDIO_FILESIZE_LIMIT", 104857600)
+
+TG_VIDEO_FILESIZE_LIMIT = _env_int("TG_VIDEO_FILESIZE_LIMIT", 1073741824)
 # https://www.gbmb.org/mb-to-bytes
 
-COOKIES = getenv("COOKIES", None)
+COOKIES = _env("COOKIES", None)
 # https://batbin.me
 
-STRING1 = getenv("STRING_SESSION", None)
-STRING2 = getenv("STRING_SESSION2", None)
-STRING3 = getenv("STRING_SESSION3", None)
-STRING4 = getenv("STRING_SESSION4", None)
-STRING5 = getenv("STRING_SESSION5", None)
+STRING1 = _env("STRING_SESSION", None)
+STRING2 = _env("STRING_SESSION2", None)
+STRING3 = _env("STRING_SESSION3", None)
+STRING4 = _env("STRING_SESSION4", None)
+STRING5 = _env("STRING_SESSION5", None)
 
 BANNED_USERS = filters.user()
 YTDOWNLOADER = 1
@@ -107,66 +137,66 @@ clean = {}
 
 autoclean = []
 
-START_IMG_URL = getenv(
+START_IMG_URL = _env(
     "START_IMG_URL", "https://telegra.ph/file/d593c6064ff7657d0c714.jpg"
 )
 
-PING_IMG_URL = getenv(
+PING_IMG_URL = _env(
     "PING_IMG_URL",
     "assets/Ping.jpeg",
 )
 
-PLAYLIST_IMG_URL = getenv(
+PLAYLIST_IMG_URL = _env(
     "PLAYLIST_IMG_URL",
     "assets/Playlist.jpeg",
 )
 
-GLOBAL_IMG_URL = getenv(
+GLOBAL_IMG_URL = _env(
     "GLOBAL_IMG_URL",
     "assets/Global.jpeg",
 )
 
-STATS_IMG_URL = getenv(
+STATS_IMG_URL = _env(
     "STATS_IMG_URL",
     "assets/Stats.jpeg",
 )
 
-TELEGRAM_AUDIO_URL = getenv(
+TELEGRAM_AUDIO_URL = _env(
     "TELEGRAM_AUDIO_URL",
     "assets/Audio.jpeg",
 )
 
-TELEGRAM_VIDEO_URL = getenv(
+TELEGRAM_VIDEO_URL = _env(
     "TELEGRAM_VIDEO_URL",
     "assets/Video.jpeg",
 )
 
-STREAM_IMG_URL = getenv(
+STREAM_IMG_URL = _env(
     "STREAM_IMG_URL",
     "assets/Stream.jpeg",
 )
 
-SOUNCLOUD_IMG_URL = getenv(
+SOUNCLOUD_IMG_URL = _env(
     "SOUNCLOUD_IMG_URL",
     "assets/Soundcloud.jpeg",
 )
 
-YOUTUBE_IMG_URL = getenv(
+YOUTUBE_IMG_URL = _env(
     "YOUTUBE_IMG_URL",
     "assets/Youtube.jpeg",
 )
 
-SPOTIFY_ARTIST_IMG_URL = getenv(
+SPOTIFY_ARTIST_IMG_URL = _env(
     "SPOTIFY_ARTIST_IMG_URL",
     "assets/SpotifyArtist.jpeg",
 )
 
-SPOTIFY_ALBUM_IMG_URL = getenv(
+SPOTIFY_ALBUM_IMG_URL = _env(
     "SPOTIFY_ALBUM_IMG_URL",
     "assets/SpotifyAlbum.jpeg",
 )
 
-SPOTIFY_PLAYLIST_IMG_URL = getenv(
+SPOTIFY_PLAYLIST_IMG_URL = _env(
     "SPOTIFY_PLAYLIST_IMG_URL",
     "assets/SpotifyPlaylist.jpeg",
 )
