@@ -13,7 +13,7 @@ import asyncio
 import os
 import re
 import json
-from typing import Union
+from typing import Any, Dict, Union
 
 from yt_dlp import YoutubeDL
 from pyrogram.enums import MessageEntityType
@@ -21,15 +21,19 @@ from pyrogram.types import Message
 from youtubesearchpython.__future__ import VideosSearch
 
 import config
+from HanzzMusic import LOGGER
 from HanzzMusic.utils.database import is_on_off
-from HanzzMusic.utils.formatters import time_to_seconds
+from HanzzMusic.utils.formatters import seconds_to_min, time_to_seconds
 
 
 def cookiefile():
     cookie_dir = "cookies"
-    cookies_files = [f for f in os.listdir(cookie_dir) if f.endswith(".txt")]
-
-    return os.path.join(cookie_dir, cookies_files[0])
+    if not os.path.isdir(cookie_dir):
+        return None
+    for name in os.listdir(cookie_dir):
+        if name.endswith(".txt"):
+            return os.path.join(cookie_dir, name)
+    return None
 
 
 async def shell_cmd(cmd):
@@ -54,6 +58,37 @@ class YouTubeAPI:
         self.status = "https://www.youtube.com/oembed?url="
         self.listbase = "https://youtube.com/playlist?list="
         self.reg = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
+    def _ydl_opts(self) -> Dict[str, Any]:
+        opts = {"quiet": True, "skip_download": True}
+        cookie_path = cookiefile()
+        if cookie_path:
+            opts["cookiefile"] = cookie_path
+        return opts
+
+    async def _ydl_info(self, query: str, limit: int = 1) -> Dict[str, Any]:
+        is_url = bool(re.search(self.regex, query))
+        target = query if is_url else f"ytsearch{limit}:{query}"
+
+        def _extract():
+            with YoutubeDL(self._ydl_opts()) as ydl:
+                return ydl.extract_info(target, download=False)
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, _extract)
+
+    def _normalize_info(self, info: Dict[str, Any]) -> Dict[str, Any]:
+        duration = info.get("duration")
+        duration_min = None
+        if duration:
+            duration_min = seconds_to_min(duration)
+        return {
+            "title": info.get("title") or "Unknown Title",
+            "duration_min": duration_min,
+            "thumbnail": info.get("thumbnail"),
+            "vidid": info.get("id"),
+            "link": info.get("webpage_url") or info.get("original_url"),
+        }
 
     async def exists(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -87,8 +122,12 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
+        try:
+            results = VideosSearch(link, limit=1)
+            result_list = (await results.next()).get("result") or []
+            if not result_list:
+                raise ValueError("No search results")
+            result = result_list[0]
             title = result["title"]
             duration_min = result["duration"]
             thumbnail = result["thumbnails"][0]["url"].split("?")[0]
@@ -97,51 +136,94 @@ class YouTubeAPI:
                 duration_sec = 0
             else:
                 duration_sec = int(time_to_seconds(duration_min))
-        return title, duration_min, duration_sec, thumbnail, vidid
+            return title, duration_min, duration_sec, thumbnail, vidid
+        except Exception as exc:
+            LOGGER(__name__).warning("VideosSearch failed in details: %s", exc)
+            info = await self._ydl_info(link, limit=1)
+            entry = (info.get("entries") or [info])[0]
+            data = self._normalize_info(entry)
+            duration_sec = (
+                int(time_to_seconds(data["duration_min"]))
+                if data["duration_min"]
+                else 0
+            )
+            thumbnail = data["thumbnail"] or ""
+            return (
+                data["title"],
+                data["duration_min"],
+                duration_sec,
+                thumbnail,
+                data["vidid"],
+            )
 
     async def title(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
-            title = result["title"]
-        return title
+        try:
+            results = VideosSearch(link, limit=1)
+            result_list = (await results.next()).get("result") or []
+            if not result_list:
+                raise ValueError("No search results")
+            return result_list[0]["title"]
+        except Exception as exc:
+            LOGGER(__name__).warning("VideosSearch failed in title: %s", exc)
+            info = await self._ydl_info(link, limit=1)
+            entry = (info.get("entries") or [info])[0]
+            return self._normalize_info(entry)["title"]
 
     async def duration(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
-            duration = result["duration"]
-        return duration
+        try:
+            results = VideosSearch(link, limit=1)
+            result_list = (await results.next()).get("result") or []
+            if not result_list:
+                raise ValueError("No search results")
+            return result_list[0]["duration"]
+        except Exception as exc:
+            LOGGER(__name__).warning("VideosSearch failed in duration: %s", exc)
+            info = await self._ydl_info(link, limit=1)
+            entry = (info.get("entries") or [info])[0]
+            return self._normalize_info(entry)["duration_min"]
 
     async def thumbnail(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
-            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-        return thumbnail
+        try:
+            results = VideosSearch(link, limit=1)
+            result_list = (await results.next()).get("result") or []
+            if not result_list:
+                raise ValueError("No search results")
+            return result_list[0]["thumbnails"][0]["url"].split("?")[0]
+        except Exception as exc:
+            LOGGER(__name__).warning("VideosSearch failed in thumbnail: %s", exc)
+            info = await self._ydl_info(link, limit=1)
+            entry = (info.get("entries") or [info])[0]
+            return self._normalize_info(entry)["thumbnail"]
 
     async def video(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        proc = await asyncio.create_subprocess_exec(
-            "yt-dlp",
-            "--cookies",
-            cookiefile(),
+        cookie_path = cookiefile()
+        cmd = ["yt-dlp"]
+        if cookie_path:
+            cmd += ["--cookies", cookie_path]
+        cmd += [
             "-g",
             "-f",
             "best[height<=?720][width<=?1280]",
             f"{link}",
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -170,13 +252,27 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
+        try:
+            results = VideosSearch(link, limit=1)
+            result_list = (await results.next()).get("result") or []
+            if not result_list:
+                raise ValueError("No search results")
+            result = result_list[0]
             title = result["title"]
             duration_min = result["duration"]
             vidid = result["id"]
             yturl = result["link"]
             thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+        except Exception as exc:
+            LOGGER(__name__).warning("VideosSearch failed in track: %s", exc)
+            info = await self._ydl_info(link, limit=1)
+            entry = (info.get("entries") or [info])[0]
+            data = self._normalize_info(entry)
+            title = data["title"]
+            duration_min = data["duration_min"]
+            vidid = data["vidid"]
+            yturl = data["link"]
+            thumbnail = data["thumbnail"] or ""
         track_details = {
             "title": title,
             "link": yturl,
@@ -193,6 +289,9 @@ class YouTubeAPI:
         if "&" in link:
             link = link.split("&")[0]
         ytdl_opts = {"quiet": True}
+        cookie_path = cookiefile()
+        if cookie_path:
+            ytdl_opts["cookiefile"] = cookie_path
         ydl = YoutubeDL(ytdl_opts)
         with ydl:
             formats_available = []
@@ -234,13 +333,25 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        a = VideosSearch(link, limit=10)
-        result = (await a.next()).get("result")
-        title = result[query_type]["title"]
-        duration_min = result[query_type]["duration"]
-        vidid = result[query_type]["id"]
-        thumbnail = result[query_type]["thumbnails"][0]["url"].split("?")[0]
-        return title, duration_min, thumbnail, vidid
+        try:
+            a = VideosSearch(link, limit=10)
+            result_list = (await a.next()).get("result") or []
+            if len(result_list) <= query_type:
+                raise ValueError("No search results")
+            title = result_list[query_type]["title"]
+            duration_min = result_list[query_type]["duration"]
+            vidid = result_list[query_type]["id"]
+            thumbnail = result_list[query_type]["thumbnails"][0]["url"].split("?")[0]
+            return title, duration_min, thumbnail, vidid
+        except Exception as exc:
+            LOGGER(__name__).warning("VideosSearch failed in slider: %s", exc)
+            info = await self._ydl_info(link, limit=10)
+            entries = info.get("entries") or []
+            if len(entries) <= query_type:
+                raise
+            entry = entries[query_type]
+            data = self._normalize_info(entry)
+            return data["title"], data["duration_min"], data["thumbnail"], data["vidid"]
 
     async def download(
         self,
@@ -259,7 +370,6 @@ class YouTubeAPI:
 
         def audio_dl():
             ydl_optssx = {
-                "cookiefile": cookiefile(),
                 "format": "bestaudio/best",
                 "outtmpl": "downloads/%(id)s.%(ext)s",
                 "geo_bypass": True,
@@ -267,6 +377,9 @@ class YouTubeAPI:
                 "quiet": True,
                 "no_warnings": True,
             }
+            cookie_path = cookiefile()
+            if cookie_path:
+                ydl_optssx["cookiefile"] = cookie_path
             x = YoutubeDL(ydl_optssx)
             info = x.extract_info(link, False)
             xyz = os.path.join("downloads", f"{info['id']}.{info['ext']}")
@@ -277,7 +390,6 @@ class YouTubeAPI:
 
         def video_dl():
             ydl_optssx = {
-                "cookiefile": cookiefile(),
                 "format": "(best[height<=?720][width<=?1280])",
                 "outtmpl": "downloads/%(id)s.%(ext)s",
                 "geo_bypass": True,
@@ -285,6 +397,9 @@ class YouTubeAPI:
                 "quiet": True,
                 "no_warnings": True,
             }
+            cookie_path = cookiefile()
+            if cookie_path:
+                ydl_optssx["cookiefile"] = cookie_path
             x = YoutubeDL(ydl_optssx)
             info = x.extract_info(link, False)
             xyz = os.path.join("downloads", f"{info['id']}.{info['ext']}")
@@ -303,10 +418,12 @@ class YouTubeAPI:
                 "nocheckcertificate": True,
                 "quiet": True,
                 "no_warnings": True,
-                "cookiefile": cookiefile(),
                 "prefer_ffmpeg": True,
                 "merge_output_format": "mp4",
             }
+            cookie_path = cookiefile()
+            if cookie_path:
+                ydl_optssx["cookiefile"] = cookie_path
             x = YoutubeDL(ydl_optssx)
             x.download([link])
 
@@ -319,7 +436,6 @@ class YouTubeAPI:
                 "nocheckcertificate": True,
                 "quiet": True,
                 "no_warnings": True,
-                "cookiefile": cookiefile(),
                 "prefer_ffmpeg": True,
                 "postprocessors": [
                     {
@@ -329,6 +445,9 @@ class YouTubeAPI:
                     }
                 ],
             }
+            cookie_path = cookiefile()
+            if cookie_path:
+                ydl_optssx["cookiefile"] = cookie_path
             x = YoutubeDL(ydl_optssx)
             x.download([link])
 
@@ -345,14 +464,18 @@ class YouTubeAPI:
                 direct = True
                 downloaded_file = await loop.run_in_executor(None, video_dl)
             else:
-                proc = await asyncio.create_subprocess_exec(
-                    "yt-dlp",
-                    "--cookies",
-                    cookiefile(),
+                cookie_path = cookiefile()
+                cmd = ["yt-dlp"]
+                if cookie_path:
+                    cmd += ["--cookies", cookie_path]
+                cmd += [
                     "-g",
                     "-f",
                     "best[height<=?720][width<=?1280]",
                     f"{link}",
+                ]
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )

@@ -16,6 +16,15 @@ from pyrogram.types import InlineKeyboardButton
 
 
 def setting_markup(_):
+    support_row = [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close")]
+    if config.SUPPORT_GROUP:
+        support_row.insert(
+            0,
+            InlineKeyboardButton(
+                text="𝖲𝗎𝗉𝗉𝗈𝗋𝗍",
+                url=config.SUPPORT_GROUP,
+            ),
+        )
     return [
         [
             InlineKeyboardButton(text=_["ST_B_1"], callback_data="AQ"),
@@ -29,13 +38,7 @@ def setting_markup(_):
             InlineKeyboardButton(text=_["ST_B_5"], callback_data="PM"),
             InlineKeyboardButton(text=_["ST_B_7"], callback_data="CM"),
         ],
-        [
-            InlineKeyboardButton(
-                text="𝖲𝗎𝗉𝗉𝗈𝗋𝗍",
-                url=config.SUPPORT_GROUP,
-            ),
-            InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close"),
-        ],
+        support_row,
     ]
 
 

@@ -14,6 +14,15 @@ from pyrogram.types import InlineKeyboardButton
 
 
 def song_markup(_, vidid):
+    support_row = [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close")]
+    if config.SUPPORT_GROUP:
+        support_row.insert(
+            0,
+            InlineKeyboardButton(
+                text="🌻 sᴜᴩᴩᴏʀᴛ 🌻",
+                url=config.SUPPORT_GROUP,
+            ),
+        )
     return [
         [
             InlineKeyboardButton(
@@ -25,11 +34,5 @@ def song_markup(_, vidid):
                 callback_data=f"song_helper video|{vidid}",
             ),
         ],
-        [
-            InlineKeyboardButton(
-                text="🌻 sᴜᴩᴩᴏʀᴛ 🌻",
-                url=config.SUPPORT_GROUP,
-            ),
-            InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close"),
-        ],
+        support_row,
     ]
